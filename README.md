@@ -12,6 +12,16 @@ A single-page Pomodoro timer and task tracker. No build step, no dependencies â€
 - Daily streak tracking
 - Everything persists locally via `localStorage`
 - Sound cue when a session ends
+- **Focus together**: create a room, send the link to a friend, and share one timer. Start, pause, reset, skip, mode and duration changes sync for everyone, and you can see who's in the room and what they're working on
+
+## How Focus together works
+
+Rooms use [Supabase Realtime](https://supabase.com/docs/guides/realtime) broadcast and presence channels. Nothing is stored server-side; the channel just relays messages between open tabs. The Supabase client loads only when you join a room, so the timer still works fully offline.
+
+- Every action sends a full snapshot of the timer with the *time remaining* (not a wall-clock end time), so the two devices' clocks don't need to agree.
+- Someone joining mid-session asks the room for the current timer and snaps to it.
+- Tasks, pomodoro counts and streaks stay personal. When the shared timer finishes, each person gets credit locally.
+- Anyone with the room link can join, so treat it like a meeting link.
 
 ## Running locally
 

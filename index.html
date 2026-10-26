@@ -199,7 +199,7 @@
   .btn-ghost:hover { color: var(--ink-dim); }
 
   /* Tasks card */
-  .tasks-card h2 {
+  .tasks-card h2, .room-card h2 {
     font-family: 'Fraunces', Georgia, serif;
     font-style: italic;
     font-weight: 500;
@@ -298,6 +298,59 @@
     border-radius: 6px; padding: 7px 9px; font-size: 13px; width: 100%; font-family: inherit;
   }
   .settings-panel input:focus { outline: none; border-color: var(--accent); }
+
+  .col { display: flex; flex-direction: column; gap: 22px; min-width: 0; }
+
+  /* Room card */
+  .room-card { padding: 24px 28px; }
+  .room-card h2 { margin-bottom: 6px; }
+  .room-hint { font-size: 13px; line-height: 1.5; color: var(--ink-faint); margin: 0 0 16px; }
+  .field {
+    display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px;
+    font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-faint);
+  }
+  .field input, .room-link input {
+    background: var(--bg); border: 1px solid var(--line-strong); color: var(--ink);
+    border-radius: 6px; padding: 9px 11px; font-size: 13px; width: 100%; font-family: inherit;
+    letter-spacing: normal; text-transform: none;
+  }
+  .field input:focus { outline: none; border-color: var(--accent); }
+  .field input::placeholder { color: var(--ink-faint); }
+  .room-card .btn { width: 100%; }
+  .room-head {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    font-size: 12px; color: var(--ink-dim); margin: 6px 0 12px;
+  }
+  .room-status { display: flex; align-items: center; gap: 7px; }
+  .live-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ink-faint); flex-shrink: 0; }
+  .room-head.live .live-dot { background: var(--good); box-shadow: 0 0 0 3px rgba(122, 148, 113, 0.18); }
+  .room-head.error .live-dot { background: var(--danger); }
+  .room-code { font-family: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, monospace; color: var(--ink-faint); }
+  .room-link { display: flex; gap: 8px; margin-bottom: 16px; }
+  .room-link input { color: var(--ink-dim); font-size: 12px; min-width: 0; }
+  .room-link button {
+    background: transparent; border: 1px solid var(--line-strong); color: var(--ink-dim);
+    border-radius: 6px; padding: 0 14px; font-size: 11px; font-weight: 700; letter-spacing: 0.08em;
+    text-transform: uppercase; cursor: pointer; font-family: inherit; white-space: nowrap;
+    transition: border-color 0.15s, color 0.15s;
+  }
+  .room-link button:hover { border-color: var(--accent); color: var(--accent); }
+  ul.members { list-style: none; margin: 0 0 12px; padding: 0; }
+  li.member { display: flex; align-items: center; gap: 11px; padding: 9px 0; border-bottom: 1px solid var(--line); }
+  li.member:last-child { border-bottom: none; }
+  .avatar {
+    width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 700; color: var(--accent-ink); background: var(--ink-faint);
+  }
+  li.member.me .avatar { background: var(--accent); }
+  .member-text { min-width: 0; }
+  .member-name { font-size: 13.5px; color: var(--ink); }
+  .member-name .you { color: var(--ink-faint); font-size: 12px; }
+  .member-task { font-size: 12px; color: var(--ink-faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .room-activity { font-size: 12px; color: var(--ink-dim); font-style: italic; min-height: 18px; margin-bottom: 10px; transition: opacity 0.4s; }
+  .room-activity:empty { margin-bottom: 0; min-height: 0; }
+  [hidden] { display: none !important; }
 </style>
 </head>
 <body>
@@ -320,6 +373,7 @@
     </div>
   </header>
 
+  <div class="col">
   <div class="card timer-card">
     <div class="mode-tabs">
       <button class="mode-tab active" data-mode="focus">Focus</button>
@@ -364,6 +418,29 @@
       <label>Short break<input type="number" id="durShort" min="1" max="60" value="5"></label>
       <label>Long break<input type="number" id="durLong" min="1" max="90" value="15"></label>
     </div>
+  </div>
+
+  <div class="card room-card">
+    <h2>Focus together</h2>
+    <label class="field">Your name<input type="text" id="nameInput" maxlength="24" placeholder="So your friend knows it's you"></label>
+    <div id="roomIdle">
+      <p class="room-hint">Share one timer with a friend. Start, pause, reset and skip stay in sync for everyone in the room.</p>
+      <button class="btn btn-secondary" id="createRoomBtn">Create a room</button>
+    </div>
+    <div id="roomActive" hidden>
+      <div class="room-head" id="roomHead">
+        <span class="room-status"><span class="live-dot"></span><span id="roomStatusText">Connecting…</span></span>
+        <span class="room-code" id="roomCode"></span>
+      </div>
+      <div class="room-link">
+        <input type="text" id="roomLink" readonly aria-label="Room link">
+        <button id="copyLinkBtn">Copy</button>
+      </div>
+      <ul class="members" id="memberList"></ul>
+      <div class="room-activity" id="roomActivity"></div>
+      <button class="btn btn-ghost" id="leaveRoomBtn">Leave room</button>
+    </div>
+  </div>
   </div>
 
   <div class="card tasks-card">
@@ -411,12 +488,15 @@
   if (!state.streak) state.streak = { current: 0, longest: 0, lastDate: null };
   if (typeof state.cyclePomos !== 'number') state.cyclePomos = 0;
 
-  // Timer runtime (not persisted across reload mid-session, resets cleanly)
+  // Timer runtime (not persisted across reload mid-session, resets cleanly).
+  // While running, the source of truth is endsAt; remaining is only kept up to date while paused.
   let mode = 'focus';
   let remaining = state.durations.focus * 60;
   let totalForMode = remaining;
   let running = false;
+  let endsAt = 0;
   let tickHandle = null;
+  let doneHandle = null;
 
   const el = {
     streakCount: document.getElementById('streakCount'),
@@ -469,11 +549,17 @@
     }
   }
 
+  function currentRemaining() {
+    return running ? Math.max(0, (endsAt - Date.now()) / 1000) : remaining;
+  }
+
   function renderTime() {
-    el.timeText.textContent = fmtTime(remaining);
-    const progress = 1 - remaining / totalForMode;
+    const left = currentRemaining();
+    const shown = fmtTime(Math.ceil(left));
+    el.timeText.textContent = shown;
+    const progress = 1 - left / totalForMode;
     el.ringProgress.style.strokeDashoffset = RING_CIRC * (1 - progress);
-    document.title = running ? `${fmtTime(remaining)} · Focus Flow` : 'Focus Flow';
+    document.title = running ? `${shown} · Focus Flow` : 'Focus Flow';
   }
 
   function renderDots() {
@@ -492,6 +578,7 @@
   function renderActiveTaskLabel() {
     const t = state.tasks.find(t => t.id === state.activeTaskId);
     el.activeTaskLabel.textContent = t ? t.name : 'No task selected';
+    trackPresence();
   }
 
   function renderTasks() {
@@ -549,7 +636,10 @@
   el.taskInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') addTask(); });
 
   el.modeTabs.forEach(btn => {
-    btn.addEventListener('click', () => setMode(btn.dataset.mode));
+    btn.addEventListener('click', () => {
+      setMode(btn.dataset.mode);
+      broadcastTimer('mode');
+    });
   });
 
   function beep() {
@@ -589,16 +679,20 @@
     renderStreak();
   }
 
+  function creditFocus() {
+    state.cyclePomos += 1;
+    bumpStreak();
+    const t = state.tasks.find(t => t.id === state.activeTaskId);
+    if (t) t.pomos = (t.pomos || 0) + 1;
+    saveState();
+    renderTasks();
+    renderDots();
+  }
+
   function completeSession() {
     beep();
     if (mode === 'focus') {
-      state.cyclePomos += 1;
-      bumpStreak();
-      const t = state.tasks.find(t => t.id === state.activeTaskId);
-      if (t) t.pomos = (t.pomos || 0) + 1;
-      saveState();
-      renderTasks();
-      renderDots();
+      creditFocus();
       const nextMode = state.cyclePomos % 4 === 0 ? 'long' : 'short';
       setMode(nextMode);
     } else {
@@ -607,10 +701,11 @@
   }
 
   function tick() {
-    remaining -= 1;
-    if (remaining <= 0) {
-      renderTime();
+    if (!running) return;
+    if (endsAt - Date.now() <= 0) {
       pause();
+      remaining = 0;
+      renderTime();
       completeSession();
       return;
     }
@@ -620,29 +715,49 @@
   function start() {
     if (running) return;
     running = true;
+    endsAt = Date.now() + remaining * 1000;
     el.startBtn.textContent = 'Pause';
-    tickHandle = setInterval(tick, 1000);
+    tickHandle = setInterval(tick, 250);
+    // One-shot timer for the end, so background tabs (which throttle intervals) still finish on time
+    doneHandle = setTimeout(tick, endsAt - Date.now() + 20);
     renderTime();
   }
 
   function pause() {
+    if (running) remaining = currentRemaining();
     running = false;
     el.startBtn.textContent = 'Start';
     if (tickHandle) clearInterval(tickHandle);
+    if (doneHandle) clearTimeout(doneHandle);
     tickHandle = null;
+    doneHandle = null;
     renderTime();
   }
 
-  el.startBtn.addEventListener('click', () => running ? pause() : start());
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) tick();
+  });
+
+  el.startBtn.addEventListener('click', () => {
+    if (running) {
+      pause();
+      broadcastTimer('pause');
+    } else {
+      start();
+      broadcastTimer('start');
+    }
+  });
   el.resetBtn.addEventListener('click', () => {
     pause();
     remaining = durationForMode(mode);
     totalForMode = remaining;
     renderTime();
+    broadcastTimer('reset');
   });
   el.skipBtn.addEventListener('click', () => {
     pause();
     completeSession();
+    broadcastTimer('skip');
   });
 
   el.settingsToggle.addEventListener('click', () => {
@@ -662,7 +777,347 @@
     }
   }
   [el.durFocus, el.durShort, el.durLong].forEach(input => {
-    input.addEventListener('change', applyDurations);
+    input.addEventListener('change', () => {
+      applyDurations();
+      broadcastTimer('durations');
+    });
+  });
+
+  // ---- Focus together: a shared timer over Supabase Realtime (broadcast + presence) ----
+  // Rooms are ephemeral. Nothing is stored server-side; the channel only relays messages between open tabs.
+  // Tasks, pomodoro counts and streaks stay local; only the timer (and the 4-session cycle) is shared.
+  const SUPABASE_URL = 'https://xqxromuohimgjfknlmdt.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_onZ47TGslZUHnSZeoyyYFA_FB89FrFM';
+  const SUPABASE_SRC = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js';
+  const SUPABASE_SRI = 'sha384-Rj26LVGvoeRVR6+mwQmFfcR3QOBEwT+ZmuCWpuiqeTzJpCs0ER4ITAWGb4Hiy3Ok';
+  const NAME_KEY = 'focusflow.name';
+  const MODES = ['focus', 'short', 'long'];
+  const MODE_LABEL = { focus: 'Focus', short: 'Short Break', long: 'Long Break' };
+  const ACTION_TEXT = {
+    start: 'started the timer',
+    pause: 'paused the timer',
+    reset: 'reset the timer',
+    skip: 'skipped ahead',
+    mode: 'switched modes',
+    durations: 'changed the durations',
+    state: '',
+  };
+
+  const roomEl = {
+    nameInput: document.getElementById('nameInput'),
+    idle: document.getElementById('roomIdle'),
+    active: document.getElementById('roomActive'),
+    head: document.getElementById('roomHead'),
+    statusText: document.getElementById('roomStatusText'),
+    code: document.getElementById('roomCode'),
+    link: document.getElementById('roomLink'),
+    copyBtn: document.getElementById('copyLinkBtn'),
+    members: document.getElementById('memberList'),
+    activity: document.getElementById('roomActivity'),
+    createBtn: document.getElementById('createRoomBtn'),
+    leaveBtn: document.getElementById('leaveRoomBtn'),
+  };
+
+  // pending: we just (re)joined and should adopt the room's timer from whoever answers our hello
+  const room = { id: null, channel: null, live: false, pending: false, subscribedOnce: false };
+  const clientId = randomId(12);
+  let sb = null;
+  let supabaseLoad = null;
+  let presenceTimer = null;
+  let activityTimer = null;
+
+  function randomId(len) {
+    const alphabet = 'abcdefghijkmnpqrstuvwxyz23456789';
+    const bytes = crypto.getRandomValues(new Uint8Array(len));
+    return Array.from(bytes, b => alphabet[b % alphabet.length]).join('');
+  }
+
+  function cleanName(v) {
+    return (typeof v === 'string' && v.trim().slice(0, 24)) || 'Guest';
+  }
+
+  function myName() {
+    return cleanName(roomEl.nameInput.value);
+  }
+
+  function clampInt(v, min, max) {
+    const n = Math.round(Number(v));
+    return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : null;
+  }
+
+  function loadSupabase() {
+    if (window.supabase) return Promise.resolve(window.supabase);
+    if (!supabaseLoad) {
+      supabaseLoad = new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = SUPABASE_SRC;
+        s.integrity = SUPABASE_SRI;
+        s.crossOrigin = 'anonymous';
+        s.onload = () => resolve(window.supabase);
+        s.onerror = () => { supabaseLoad = null; reject(new Error('Could not load Supabase')); };
+        document.head.appendChild(s);
+      });
+    }
+    return supabaseLoad;
+  }
+
+  function roomFromHash() {
+    const m = location.hash.match(/^#room=([a-z0-9]{4,24})$/);
+    return m ? m[1] : null;
+  }
+
+  function roomLink(id) {
+    return location.href.split('#')[0] + '#room=' + id;
+  }
+
+  function timerSnapshot(action) {
+    return {
+      action,
+      by: myName(),
+      mode,
+      running,
+      remainingMs: Math.round(currentRemaining() * 1000),
+      total: totalForMode,
+      durations: { ...state.durations },
+      cycle: state.cyclePomos,
+    };
+  }
+
+  function broadcastTimer(action) {
+    if (!room.channel || !room.live) return;
+    room.channel.send({ type: 'broadcast', event: 'timer', payload: timerSnapshot(action) });
+  }
+
+  // Messages come from other people's browsers, so validate everything before touching state
+  function cleanSnapshot(raw) {
+    if (!raw || typeof raw !== 'object') return null;
+    if (!Object.prototype.hasOwnProperty.call(ACTION_TEXT, raw.action)) return null;
+    if (!MODES.includes(raw.mode)) return null;
+    const total = clampInt(raw.total, 1, 120 * 60);
+    const remainingMs = clampInt(raw.remainingMs, 0, 120 * 60 * 1000);
+    const cycle = clampInt(raw.cycle, 0, 1e6);
+    if (total === null || remainingMs === null || cycle === null) return null;
+    const d = raw.durations || {};
+    return {
+      action: raw.action,
+      by: cleanName(raw.by),
+      mode: raw.mode,
+      running: raw.running === true,
+      remainingMs: Math.min(remainingMs, total * 1000),
+      total,
+      durations: {
+        focus: clampInt(d.focus, 1, 120) || state.durations.focus,
+        short: clampInt(d.short, 1, 60) || state.durations.short,
+        long: clampInt(d.long, 1, 90) || state.durations.long,
+      },
+      cycle,
+    };
+  }
+
+  function applySnapshot(s, adopt) {
+    // They finished a focus session we haven't yet (a skip, or their timer ran out a beat before ours)
+    if (!adopt && mode === 'focus' && s.cycle > state.cyclePomos) {
+      beep();
+      creditFocus();
+    }
+    state.cyclePomos = s.cycle;
+    state.durations = s.durations;
+    el.durFocus.value = s.durations.focus;
+    el.durShort.value = s.durations.short;
+    el.durLong.value = s.durations.long;
+    saveState();
+    renderDots();
+    setMode(s.mode);
+    totalForMode = s.total;
+    // Relative time, so the two devices' clocks don't need to agree
+    remaining = s.remainingMs / 1000;
+    if (s.running) start(); else renderTime();
+  }
+
+  function onRemoteTimer(raw) {
+    const s = cleanSnapshot(raw);
+    if (!s) return;
+    if (s.action === 'state' && !room.pending) return;
+    const adopt = room.pending;
+    room.pending = false;
+    applySnapshot(s, adopt);
+    if (s.action === 'state') showActivity(`Synced with ${s.by}`);
+    else if (s.action === 'mode') showActivity(`${s.by} switched to ${MODE_LABEL[s.mode]}`);
+    else showActivity(`${s.by} ${ACTION_TEXT[s.action]}`);
+  }
+
+  function trackPresence() {
+    if (!room.channel || !room.live) return;
+    clearTimeout(presenceTimer);
+    presenceTimer = setTimeout(() => {
+      if (!room.channel || !room.live) return;
+      const t = state.tasks.find(t => t.id === state.activeTaskId);
+      room.channel.track({ name: myName(), task: t ? t.name.slice(0, 60) : '' });
+    }, 250);
+  }
+
+  function presenceName(list) {
+    return cleanName(list && list[0] && list[0].name);
+  }
+
+  function setRoomStatus(text, kind) {
+    roomEl.statusText.textContent = text;
+    roomEl.head.classList.toggle('live', kind === 'live');
+    roomEl.head.classList.toggle('error', kind === 'error');
+  }
+
+  function showActivity(text) {
+    roomEl.activity.textContent = text;
+    clearTimeout(activityTimer);
+    activityTimer = setTimeout(() => { roomEl.activity.textContent = ''; }, 6000);
+  }
+
+  function renderMembers() {
+    if (!room.channel) return;
+    const members = Object.entries(room.channel.presenceState()).map(([key, metas]) => {
+      const m = metas[metas.length - 1] || {};
+      return { key, name: cleanName(m.name), task: typeof m.task === 'string' ? m.task.slice(0, 60) : '' };
+    });
+    members.sort((a, b) => (b.key === clientId) - (a.key === clientId));
+    roomEl.members.innerHTML = '';
+    members.forEach(m => {
+      const isMe = m.key === clientId;
+      const li = document.createElement('li');
+      li.className = 'member' + (isMe ? ' me' : '');
+      li.innerHTML = '<span class="avatar"></span><div class="member-text"><div class="member-name"></div><div class="member-task"></div></div>';
+      li.querySelector('.avatar').textContent = Array.from(m.name)[0].toUpperCase();
+      const nameEl = li.querySelector('.member-name');
+      nameEl.textContent = m.name;
+      if (isMe) {
+        const you = document.createElement('span');
+        you.className = 'you';
+        you.textContent = ' (you)';
+        nameEl.appendChild(you);
+      }
+      li.querySelector('.member-task').textContent = m.task ? `On: ${m.task}` : 'No task picked';
+      roomEl.members.appendChild(li);
+    });
+    const others = members.filter(m => m.key !== clientId).length;
+    if (room.live) setRoomStatus(others ? `Live · ${others + 1} focusing together` : 'Live · waiting for a friend', 'live');
+  }
+
+  function renderRoom() {
+    const inRoom = !!room.id;
+    roomEl.idle.hidden = inRoom;
+    roomEl.active.hidden = !inRoom;
+    if (inRoom) {
+      roomEl.code.textContent = room.id;
+      roomEl.link.value = roomLink(room.id);
+    } else {
+      roomEl.members.innerHTML = '';
+      roomEl.activity.textContent = '';
+    }
+  }
+
+  function leaveRoom() {
+    if (room.channel) {
+      const ch = room.channel;
+      room.channel = null;
+      sb.removeChannel(ch);
+    }
+    room.id = null;
+    room.live = false;
+    room.pending = false;
+    room.subscribedOnce = false;
+    renderRoom();
+  }
+
+  async function joinRoom(id, { pending }) {
+    if (room.id === id) return;
+    leaveRoom();
+    room.id = id;
+    room.pending = pending;
+    if (location.hash !== '#room=' + id) history.replaceState(null, '', '#room=' + id);
+    renderRoom();
+    setRoomStatus('Connecting…');
+
+    let lib;
+    try {
+      lib = await loadSupabase();
+    } catch (e) {
+      if (room.id === id) setRoomStatus('Could not reach the sync service', 'error');
+      return;
+    }
+    if (room.id !== id) return; // left or switched rooms while the library loaded
+    if (!sb) {
+      sb = lib.createClient(SUPABASE_URL, SUPABASE_KEY, {
+        auth: { persistSession: false, autoRefreshToken: false },
+        realtime: {
+          // Heartbeats from a worker so background tabs (where a pomodoro timer usually lives) stay connected
+          worker: true,
+          heartbeatCallback: (status) => { if (status === 'disconnected') sb.realtime.connect(); },
+        },
+      });
+    }
+
+    const channel = sb.channel('focusflow:room:' + id, {
+      config: { broadcast: { self: false }, presence: { key: clientId } },
+    });
+    room.channel = channel;
+    channel
+      .on('broadcast', { event: 'hello' }, () => {
+        if (!room.pending) broadcastTimer('state');
+      })
+      .on('broadcast', { event: 'timer' }, ({ payload }) => onRemoteTimer(payload))
+      .on('presence', { event: 'sync' }, renderMembers)
+      .on('presence', { event: 'join' }, ({ key, newPresences }) => {
+        if (key !== clientId && !room.pending) showActivity(`${presenceName(newPresences)} joined`);
+      })
+      .on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
+        if (key !== clientId) showActivity(`${presenceName(leftPresences)} left`);
+      })
+      .subscribe((status) => {
+        if (room.channel !== channel) return;
+        if (status === 'SUBSCRIBED') {
+          // After a reconnect, whoever stayed connected has the truth
+          if (room.subscribedOnce) room.pending = true;
+          room.subscribedOnce = true;
+          room.live = true;
+          renderMembers();
+          trackPresence();
+          if (room.pending) {
+            channel.send({ type: 'broadcast', event: 'hello', payload: {} });
+            // Nobody answered: we're the first one here, so our timer is the room's timer
+            setTimeout(() => { if (room.channel === channel) room.pending = false; }, 1500);
+          }
+        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          room.live = false;
+          setRoomStatus('Reconnecting…', 'error');
+        } else if (status === 'CLOSED') {
+          room.live = false;
+          setRoomStatus('Disconnected', 'error');
+        }
+      });
+  }
+
+  try { roomEl.nameInput.value = localStorage.getItem(NAME_KEY) || ''; } catch (e) {}
+  roomEl.nameInput.addEventListener('input', () => {
+    try { localStorage.setItem(NAME_KEY, roomEl.nameInput.value.trim()); } catch (e) {}
+    trackPresence();
+  });
+  roomEl.createBtn.addEventListener('click', () => joinRoom(randomId(6), { pending: false }));
+  roomEl.leaveBtn.addEventListener('click', () => {
+    leaveRoom();
+    history.replaceState(null, '', location.pathname + location.search);
+  });
+  roomEl.copyBtn.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(roomEl.link.value);
+    } catch (e) {
+      roomEl.link.select();
+      try { document.execCommand('copy'); } catch (e2) {}
+    }
+    roomEl.copyBtn.textContent = 'Copied';
+    setTimeout(() => { roomEl.copyBtn.textContent = 'Copy'; }, 1500);
+  });
+  window.addEventListener('hashchange', () => {
+    const id = roomFromHash();
+    if (id && id !== room.id) joinRoom(id, { pending: true });
   });
 
   // init from saved durations
@@ -675,6 +1130,9 @@
   renderStreak();
   renderTasks();
   renderActiveTaskLabel();
+
+  const linkedRoom = roomFromHash();
+  if (linkedRoom) joinRoom(linkedRoom, { pending: true });
 })();
 </script>
 </body>
