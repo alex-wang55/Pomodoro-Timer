@@ -12,6 +12,10 @@ A single-page Pomodoro timer and task tracker. No build step, no dependencies â€
 - Daily streak tracking
 - Everything persists locally via `localStorage`
 - Sound cue when a session ends
+- Optional desktop notification when a session ends while you're in another window
+- Stats: sessions and focus time today and over the last 7 days, a per-day chart, best streak and top tasks
+- Light and dark themes (follows your system by default; switch in Settings)
+- Keyboard shortcuts: `Space` start/pause, `R` reset, `S` skip, `1` `2` `3` modes, `N` new task, `?` show the list
 - **Focus together**: create a room, send the link to a friend, and share one timer. Start, pause, reset, skip, mode and duration changes sync for everyone, and you can see who's in the room and what they're working on
 
 ## How Focus together works
